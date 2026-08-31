@@ -1,14 +1,23 @@
 // ============================================================
 //  Park Test · local settings
 //
-//  Paste your Neon Data API address between the quotes below.
-//  It ends in /rest/v1
+//  Both values come from your Supabase project:
+//    Project Settings > API
 //
-//  Safe to commit: the tables cannot be read without the
-//  passphrase, which is checked inside the database.
+//  1. Project URL, with /rest/v1 added on the end
+//  2. The anon / public key (the long one, NOT service_role)
+//
+//  Safe to commit. The anon key only reaches functions that
+//  demand your passphrase, and the tables themselves are
+//  locked away from it entirely.
+//
+//  NEVER put the service_role key here. That one bypasses
+//  everything.
 //
 //  This is the ONLY file you need to edit. Future versions of
 //  index.html can be dropped in without touching it.
 // ============================================================
 
-window.PARK_TEST_API = "https://ep-fragrant-paper-aef0d2na.apirest.c-2.us-east-2.aws.neon.tech/neondb/rest/v1";
+window.PARK_TEST_API = "https://qikaqlooqrdgbjrgjeqs.supabase.co/rest/v1";
+
+window.PARK_TEST_KEY = "sb_publishable_6uhPEcefMqVcFdr2gZ31nQ_xubI4N-X";

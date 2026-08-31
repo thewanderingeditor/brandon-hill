@@ -1,10 +1,11 @@
--- Park Test · Neon schema, passphrase edition
--- Run once in the Neon SQL editor, on the branch where the Data API is enabled.
+-- Park Test · Supabase schema, passphrase edition
+-- Paste the whole file into the Supabase SQL Editor and run it once.
 --
 -- BEFORE YOU RUN: change the passphrase on the marked line below.
--- The role name "anonymous" must match db_anon_role on the Data API page.
 
-create extension if not exists pgcrypto;
+-- Supabase keeps pgcrypto in the extensions schema, so put it on the path.
+create extension if not exists pgcrypto with schema extensions;
+set search_path = public, extensions;
 
 -- ---------------------------------------------------------------- tables
 
@@ -52,16 +53,19 @@ alter table parktest_photos   enable row level security;
 alter table parktest_config   enable row level security;
 alter table parktest_sessions enable row level security;
 
--- No policies are created, and no grants are given, so the anonymous role
--- cannot read or write these tables directly over the Data API. Everything
--- goes through the security definer functions below.
-revoke all on parktest_auth, parktest_config, parktest_sessions, parktest_photos from public;
-grant usage on schema public to anonymous;
+-- No policies are created and no grants are given, so the anon role cannot read
+-- or write these tables through the REST API at all. Everything goes through the
+-- security definer functions below, each of which checks the passphrase.
+-- Supabase grants anon and authenticated broad table access by default.
+-- Take it all back: nothing reaches these tables except via the functions.
+revoke all on parktest_auth, parktest_config, parktest_sessions, parktest_photos
+  from public, anon, authenticated;
+grant usage on schema public to anon;
 
 -- ---------------------------------------------------------------- auth
 
 create or replace function pt_auth(p_pass text)
-returns text language plpgsql security definer set search_path = public as $$
+returns text language plpgsql security definer set search_path = public, extensions as $$
 declare
   a parktest_auth%rowtype;
   n int;
@@ -87,7 +91,7 @@ revoke execute on function pt_auth(text) from public;
 -- ---------------------------------------------------------------- api
 
 create or replace function pt_load(p_pass text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -102,7 +106,7 @@ begin
 end $$;
 
 create or replace function pt_save_config(p_pass text, p_payload jsonb)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -113,7 +117,7 @@ begin
 end $$;
 
 create or replace function pt_save_session(p_pass text, p_id text, p_date date, p_payload jsonb)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -124,7 +128,7 @@ begin
 end $$;
 
 create or replace function pt_clear_sessions(p_pass text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -134,7 +138,7 @@ begin
 end $$;
 
 create or replace function pt_save_photo(p_pass text, p_session_id text, p_image text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -148,7 +152,7 @@ begin
 end $$;
 
 create or replace function pt_get_photo(p_pass text, p_session_id text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -160,7 +164,7 @@ begin
 end $$;
 
 create or replace function pt_set_pass(p_pass text, p_new text)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare st text;
 begin
   st := pt_auth(p_pass);
@@ -173,6 +177,13 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Free Supabase projects pause after seven days of inactivity. This does nothing
+-- except give the weekly keep-alive something harmless to call.
+create or replace function pt_ping()
+returns jsonb language sql security definer set search_path = public as $$
+  select jsonb_build_object('ok', true);
+$$;
+
 grant execute on function
   pt_load(text),
   pt_save_config(text, jsonb),
@@ -180,5 +191,6 @@ grant execute on function
   pt_clear_sessions(text),
   pt_save_photo(text, text, text),
   pt_get_photo(text, text),
-  pt_set_pass(text, text)
-to anonymous;
+  pt_set_pass(text, text),
+  pt_ping()
+to anon;
