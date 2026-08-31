@@ -1,6 +1,6 @@
 {
-  "name": "Park Test",
-  "short_name": "Park Test",
+  "name": "BH Fitness Tracker",
+  "short_name": "BH Fitness",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#14171A",

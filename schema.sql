@@ -133,6 +133,7 @@ declare st text;
 begin
   st := pt_auth(p_pass);
   if st <> 'ok' then return jsonb_build_object('ok', false, 'error', st); end if;
+  delete from parktest_photos;
   delete from parktest_sessions;
   return jsonb_build_object('ok', true);
 end $$;
@@ -161,6 +162,17 @@ begin
     'ok', true,
     'image', (select image from parktest_photos where session_id = p_session_id)
   );
+end $$;
+
+create or replace function pt_delete_session(p_pass text, p_id text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare st text;
+begin
+  st := pt_auth(p_pass);
+  if st <> 'ok' then return jsonb_build_object('ok', false, 'error', st); end if;
+  delete from parktest_photos   where session_id = p_id;
+  delete from parktest_sessions where id = p_id;
+  return jsonb_build_object('ok', true);
 end $$;
 
 create or replace function pt_set_pass(p_pass text, p_new text)
@@ -192,5 +204,6 @@ grant execute on function
   pt_save_photo(text, text, text),
   pt_get_photo(text, text),
   pt_set_pass(text, text),
+  pt_delete_session(text, text),
   pt_ping()
 to anon;
